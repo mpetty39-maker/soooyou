@@ -20,7 +20,7 @@ const WORD_BANK = [
   '“Let’s go all out.”', '“Let’s try something new.”', 'LOL', 'Sorry.', '“That’s Sick.”', '“This is the worst.”',
   '“What do you want to do?”', '“What’s going on?”', '“Yeah, sign me up!”', '“You can borrow mine."',
   '“I think you should....”', 'A+', 'Answers', 'Art', 'Write an Article', 'Backpack', 'Bacon', 'Big Words',
-  'Books', 'Bread', 'Busy', 'Camping', 'Cars', 'Center Stage', 'Christmas', 'Clothes', 'Coffee', 'Collector',
+  'Books', 'Bread', 'Busy', 'Camping', 'Cars', 'Center Stage', 'Christmas', 'Clothes', 'Collector',
   'Comics', 'Competitive', 'Computer', 'Cook', 'Creative', 'Dancing', 'Sci-Fi', 'Daydreams', 'Documentary',
   'Donuts', 'Facebook', 'Faith', 'Flip Flops', 'Football', 'Fantasy Stories', 'Self-Proclaimed Geek', 'Grillin’',
   'Guitar', 'Halloween', 'Science', 'Hat', 'History', 'Hoarder', 'Math', 'Hunting', 'Ice Cream', 'Inspire',
@@ -121,7 +121,17 @@ io.on('connection', (socket) => {
 function startRound(roomCode) {
   const room = rooms[roomCode];
   room.submissions = [];
-  const numTags = room.players.length <= 4 ? 5 : 6;
+  
+  // Dynamic tag counts based on player count
+  let numTags;
+  if (room.players.length === 3) {
+    numTags = 4;
+  } else if (room.players.length === 4) {
+    numTags = 5;
+  } else {
+    numTags = 6;
+  }
+  
   room.currentTags = [];
 
   while (room.currentTags.length < numTags) {
@@ -143,12 +153,14 @@ function calculateScores(roomCode) {
   const room = rooms[roomCode];
   const allColumns = [...room.players, NONE_BTN];
 
+  // Initialize count matrix
   let matrix = {};
   room.currentTags.forEach((_, tIdx) => {
     matrix[tIdx] = {};
     allColumns.forEach(col => matrix[tIdx][col] = 0);
   });
 
+  // Fill matrix with player votes
   room.submissions.forEach(sub => {
     Object.entries(sub.pairings).forEach(([tIdx, name]) => {
       matrix[tIdx][name] = (matrix[tIdx][name] || 0) + 1;
@@ -158,21 +170,28 @@ function calculateScores(roomCode) {
   let roundScores = {};
   room.players.forEach(p => roundScores[p] = 0);
 
+  // Determine top-voted choices for each tag (including NONE_BTN)
   let tagWinners = {};
   room.currentTags.forEach((_, tIdx) => {
     let maxCount = 0;
+
+    // Find highest vote count across all columns (players + "None")
     allColumns.forEach(col => {
       if (matrix[tIdx][col] > maxCount) maxCount = matrix[tIdx][col];
     });
 
     tagWinners[tIdx] = [];
+    // Only count as a winner if 2 or more people agreed (plurality rule)
     if (maxCount > 1) {
       allColumns.forEach(col => {
-        if (matrix[tIdx][col] === maxCount) tagWinners[tIdx].push(col);
+        if (matrix[tIdx][col] === maxCount) {
+          tagWinners[tIdx].push(col);
+        }
       });
     }
   });
 
+  // Calculate points and perfect-round bonuses
   let bonuses = {};
   room.submissions.forEach(sub => {
     let pName = sub.playerName;
@@ -180,18 +199,21 @@ function calculateScores(roomCode) {
 
     room.currentTags.forEach((_, tIdx) => {
       let chosen = sub.pairings[tIdx];
+      // Check if player's choice matches any top-voted option (player OR "None of These Friends")
       if (tagWinners[tIdx].includes(chosen)) {
         roundScores[pName] += 1;
         correctCount++;
       }
     });
 
+    // Perfect sweep bonus (+2)
     if (correctCount === room.currentTags.length) {
       roundScores[pName] += 2;
       bonuses[pName] = true;
     }
   });
 
+  // Accumulate total game scores
   room.players.forEach(p => {
     room.cumulativeScores[p] = (room.cumulativeScores[p] || 0) + roundScores[p];
   });
