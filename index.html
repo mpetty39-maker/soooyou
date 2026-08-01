@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sooo You...</title>
+  
+  <!-- Socket.io Client Library -->
+  <script src="/socket.io/socket.io.js"></script>
+  
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    :root {
+      --bg-color: #f3eed9;
+      --card-bg: #fffdf5;
+      --primary: #2d3748;
+      --accent: #d97706;
+      --accent-hover: #b45309;
+      --text: #1a202c;
+      --border: #e2e8f0;
+      --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg-color); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; }
+    .container { width: 100%; max-width: 500px; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border); text-align: center; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    h1, h2, h3 { margin-bottom: 1rem; color: var(--primary); }
+    p { margin-bottom: 1rem; color: #4a5568; }
+    input, select, button { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #cbd5e0; font-size: 1rem; }
+    button { background-color: var(--accent); color: white; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s ease; }
+    button:hover { background-color: var(--accent-hover); }
+    button:disabled { background-color: #cbd5e0; cursor: not-allowed; }
+    .status-text { font-size: 0.9rem; color: #718096; margin-top: 0.5rem; font-style: italic; }
+    #qrcode { display: flex; justify-content: center; margin: 1rem 0; }
+    .room-code { font-size: 2rem; font-weight: bold; letter-spacing: 4px; color: var(--accent); margin: 0.5rem 0; }
+    ul.player-list { list-style: none; margin: 1rem 0; }
+    ul.player-list li { background: #edf2f7; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 6px; font-weight: 500; }
+    
+    .tags-container { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .paper-tag { background: #fefcbf; border: 1px dashed #d69e2e; padding: 0.75rem; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; text-align: left; }
+    .paper-tag.active { border: 2px solid var(--accent); box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.3); }
+    .paired-name { font-size: 0.85rem; color: #742a2a; background: #fed7d7; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .names-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1.5rem; }
+    .name-btn { background-color: #e2e8f0; color: var(--text); margin-bottom: 0; }
+    .name-btn.selected { background-color: var(--accent); color: white; }
+    
+    .table-responsive { overflow-x: auto; margin-bottom: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th, td { border: 1px solid var(--border); padding: 0.5rem; text-align: center; }
+    th { background-color: #edf2f7; }
+    .cell-check { color: #38a169; font-weight: bold; }
+    .score-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
+    .bonus-star { color: #d69e2e; font-size: 0.8rem; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- SCREEN 1: HOME -->
+  <div id="screen-home" class="screen active">
+    <h1>Sooo You...</h1>
+    <p>A fun party game of tagging your friends!</p>
+    <button onclick="showScreen('screen-host-setup')">Host Game</button>
+    <button onclick="showScreen('screen-join')">Join Game</button>
+  </div>
+
+  <!-- SCREEN 2: HOST SETUP -->
+  <div id="screen-host-setup" class="screen">
+    <h2>Host Setup</h2>
+    <input type="text" id="host-name" placeholder="Your Name" />
+    <label style="display:block; text-align:left; margin-bottom:0.5rem; font-size:0.9rem;">Number of Players:</label>
+    <select id="player-count">
+      <option value="3">3 Players</option>
+      <option value="4" selected>4 Players</option>
+      <option value="5">5 Players</option>
+      <option value="6">6 Players</option>
+      <option value="7">7 Players</option>
+      <option value="8">8 Players</option>
+    </select>
+    <button onclick="createLobby()">Create Lobby</button>
+    <button style="background:transparent; color:#718096;" onclick="showScreen('screen-home')">Back</button>
+  </div>
+
+  <!-- SCREEN 3: JOIN ROOM -->
+  <div id="screen-join" class="screen">
+    <h2>Join Game</h2>
+    <input type="text" id="join-room-code" placeholder="4-Letter Room Code" maxlength="4" style="text-transform:uppercase;" />
+    <input type="text" id="join-player-name" placeholder="Your Name" />
+    <button onclick="joinLobby()">Join Lobby</button>
+    <button style="background:transparent; color:#718096;" onclick="showScreen('screen-home')">Back</button>
+  </div>
+
+  <!-- SCREEN 4: LOBBY -->
+  <div id="screen-lobby" class="screen">
+    <h2>Lobby</h2>
+    <p>Scan to Join or enter room code:</p>
+    <div class="room-code" id="room-code-display">----</div>
+    <div id="qrcode"></div>
+    <p>Players Connected: <span id="connected-count">1</span> / <span id="target-count">4</span></p>
+    <ul class="player-list" id="player-list-display"></ul>
+    <p class="status-text" id="lobby-status">Waiting for players to join...</p>
+  </div>
+
+  <!-- SCREEN 5: GAMEPLAY -->
+  <div id="screen-gameplay" class="screen">
+    <h2 id="round-header">Round 1 of 3</h2>
+    <p>Tap a tag, then select who fits best!</p>
+    <div class="tags-container" id="tags-container"></div>
+    <h3>Assign To:</h3>
+    <div class="names-grid" id="names-container"></div>
+    <button id="submit-pairings-btn" onclick="submitPairings()" disabled>Submit Pairings</button>
+  </div>
+
+  <!-- SCREEN 6: WAITING -->
+  <div id="screen-wait" class="screen">
+    <h2>Submitted!</h2>
+    <p id="wait-msg">Waiting for everyone else to complete their tags...</p>
+  </div>
+
+  <!-- SCREEN 7: SCOREBOARD -->
+  <div id="screen-scoreboard" class="screen">
+    <h2 id="score-round-title">Round Results</h2>
+    <div class="table-responsive">
+      <table>
+        <thead><tr id="score-table-head"></tr></thead>
+        <tbody id="score-table-body"></tbody>
+      </table>
+    </div>
+    <h3>Round Scores</h3>
+    <div id="round-scores-list" style="margin-bottom: 1rem;"></div>
+    <div id="total-scores-wrapper" class="hidden">
+      <h3>Total Scores</h3>
+      <div id="total-scores-list" style="margin-bottom: 1rem;"></div>
+      <h2 id="winner-announcement" style="color:var(--accent);"></h2>
+    </div>
+    <button id="next-round-btn" onclick="proceedNextRound()">Next Round</button>
+  </div>
+
+</div>
+
+<script>
+const NONE_BTN = "None of These Friends";
+const socket = io();
+
+let isHost = false;
+let roomCode = "";
+let myPlayerName = "";
+let players = [];
+let currentRound = 1;
+let currentTags = [];
+let selectedPairings = {};
+let activeTagIndex = null;
+
+window.addEventListener('load', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const room = urlParams.get('room');
+  if (room) {
+    document.getElementById('join-room-code').value = room.toUpperCase();
+    showScreen('screen-join');
+  }
+});
+
+function showScreen(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+function createLobby() {
+  isHost = true;
+  myPlayerName = document.getElementById('host-name').value.trim();
+  const totalPlayers = document.getElementById('player-count').value;
+  if (!myPlayerName) return alert("Please enter your name!");
+
+  socket.emit('createRoom', { playerName: myPlayerName, totalPlayers });
+}
+
+function joinLobby() {
+  isHost = false;
+  roomCode = document.getElementById('join-room-code').value.trim().toUpperCase();
+  myPlayerName = document.getElementById('join-player-name').value.trim();
+  if (!roomCode || roomCode.length !== 4) return alert("Please enter a valid 4-letter room code.");
+  if (!myPlayerName) return alert("Please enter your name.");
+
+  socket.emit('joinRoom', { roomCode, playerName: myPlayerName });
+}
+
+// SOCKET LISTENERS
+socket.on('roomCreated', (data) => {
+  roomCode = data.roomCode;
+  players = data.players;
+  document.getElementById('room-code-display').innerText = roomCode;
+  document.getElementById('target-count').innerText = data.target;
+  
+  const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
+  const joinUrl = baseUrl + '?room=' + roomCode;
+  document.getElementById("qrcode").innerHTML = "";
+  new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128 });
+
+  updateLobbyUI(data.players, data.target);
+  showScreen('screen-lobby');
+});
+
+socket.on('joinSuccess', () => {
+  showScreen('screen-wait');
+  document.getElementById('wait-msg').innerText = "Connected! Waiting for host to start...";
+});
+
+socket.on('updateLobby', (data) => {
+  players = data.players;
+  updateLobbyUI(data.players, data.target);
+});
+
+socket.on('errorMsg', (msg) => alert(msg));
+
+socket.on('startRound', (data) => {
+  currentRound = data.round;
+  currentTags = data.tags;
+  players = data.players;
+  setupGameplayUI();
+});
+
+socket.on('roundResults', (data) => renderScoreboard(data));
+
+function updateLobbyUI(playerList, targetCount) {
+  document.getElementById('connected-count').innerText = playerList.length;
+  document.getElementById('target-count').innerText = targetCount;
+  document.getElementById('player-list-display').innerHTML = playerList.map(p => `<li>${p}</li>`).join('');
+}
+
+function setupGameplayUI() {
+  selectedPairings = {};
+  activeTagIndex = null;
+  document.getElementById('round-header').innerText = `Round ${currentRound} of 3`;
+  
+  document.getElementById('tags-container').innerHTML = currentTags.map((tag, idx) => `
+    <div class="paper-tag" id="tag-${idx}" onclick="selectTag(${idx})">
+      <span>${tag}</span>
+      <span class="paired-name" id="tag-paired-${idx}">Unassigned</span>
+    </div>
+  `).join('');
+
+  const allChoices = [...players, NONE_BTN];
+  document.getElementById('names-container').innerHTML = allChoices.map(name => `
+    <button class="name-btn" onclick="assignNameToActiveTag('${name}')">${name}</button>
+  `).join('');
+
+  document.getElementById('submit-pairings-btn').disabled = true;
+  showScreen('screen-gameplay');
+  selectTag(0);
+}
+
+function selectTag(idx) {
+  activeTagIndex = idx;
+  document.querySelectorAll('.paper-tag').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+
+function assignNameToActiveTag(name) {
+  if (activeTagIndex === null) return;
+  if (selectedPairings[activeTagIndex] === name) {
+    delete selectedPairings[activeTagIndex];
+    document.getElementById(`tag-paired-${activeTagIndex}`).innerText = 'Unassigned';
+  } else {
+    selectedPairings[activeTagIndex] = name;
+    document.getElementById(`tag-paired-${activeTagIndex}`).innerText = name;
+  }
+
+  document.querySelectorAll('.name-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.innerText === selectedPairings[activeTagIndex]);
+  });
+
+  const allPaired = currentTags.every((_, idx) => !!selectedPairings[idx]);
+  document.getElementById('submit-pairings-btn').disabled = !allPaired;
+}
+
+function submitPairings() {
+  socket.emit('submitPairings', { roomCode, playerName: myPlayerName, pairings: selectedPairings });
+  showScreen('screen-wait');
+  document.getElementById('wait-msg').innerText = "Waiting for everyone else to complete their tags...";
+}
+
+function renderScoreboard(data) {
+  const allColumns = [...players, NONE_BTN];
+  document.getElementById('score-round-title').innerText = `Round ${data.round} Results`;
+
+  document.getElementById('score-table-head').innerHTML = `<th>Tags</th>` + allColumns.map(c => `<th>${c === NONE_BTN ? 'None' : c}</th>`).join('');
+
+  const mySub = data.submissions.find(s => s.playerName === myPlayerName);
+
+  document.getElementById('score-table-body').innerHTML = data.tags.map((tag, tIdx) => {
+    const cells = allColumns.map(col => {
+      const count = data.matrix[tIdx][col] || 0;
+      const myChecked = mySub && mySub.pairings[tIdx] === col;
+      return `<td>${count} ${myChecked ? '<span class="cell-check">✓</span>' : ''}</td>`;
+    }).join('');
+
+    return `<tr><td><strong>${tag}</strong></td>${cells}</tr>`;
+  }).join('');
+
+  document.getElementById('round-scores-list').innerHTML = players.map(p => `
+    <div class="score-row">
+      <span>${p} ${data.bonuses[p] ? '<span class="bonus-star">★ (+2 Bonus!)</span>' : ''}</span>
+      <strong>${data.roundScores[p]} pts</strong>
+    </div>
+  `).join('');
+
+  const nextBtn = document.getElementById('next-round-btn');
+  const totalWrapper = document.getElementById('total-scores-wrapper');
+
+  if (data.round < 3) {
+    totalWrapper.classList.add('hidden');
+    nextBtn.innerText = isHost ? (data.round === 1 ? "Start Round 2" : "Start Final Round") : "Waiting for Host...";
+    nextBtn.disabled = !isHost;
+  } else {
+    totalWrapper.classList.remove('hidden');
+    document.getElementById('total-scores-list').innerHTML = players.map(p => `
+      <div class="score-row"><span>${p}</span><strong>${data.cumulativeScores[p]} pts</strong></div>
+    `).join('');
+
+    let maxTotal = -1;
+    let winners = [];
+    players.forEach(p => {
+      if (data.cumulativeScores[p] > maxTotal) { maxTotal = data.cumulativeScores[p]; winners = [p]; }
+      else if (data.cumulativeScores[p] === maxTotal) { winners.push(p); }
+    });
+
+    document.getElementById('winner-announcement').innerText = 
+      winners.length === 1 ? `🎉 ${winners[0]} Wins! 🎉` : `🎉 Tie Game: ${winners.join(' & ')}! 🎉`;
+
+    nextBtn.innerText = "Play Again?";
+    nextBtn.disabled = false;
+  }
+
+  showScreen('screen-scoreboard');
+}
+
+function proceedNextRound() {
+  if (currentRound < 3) {
+    if (isHost) socket.emit('nextRound', { roomCode });
+  } else {
+    location.reload();
+  }
+}
+</script>
+
+</body>
+</html>
