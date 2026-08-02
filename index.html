@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Sooo You...</title>
   
-  <!-- Socket.io Client Library -->
-  <script src="/socket.io/socket.io.js"></script>
+  <!-- Socket.io Library for Real-Time Server Communication -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   
-  <!-- QRCode.js -->
+  <!-- QRCode.js for generating lobby QR codes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
+    /* --- CSS STYLES --- */
     :root {
       --bg-color: #f3eed9;
       --card-bg: #fffdf5;
@@ -23,50 +24,218 @@
       --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    body { background-color: var(--bg-color); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 1rem; }
-    .container { width: 100%; max-width: 500px; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; box-shadow: var(--shadow); border: 1px solid var(--border); text-align: center; }
-    .screen { display: none; }
-    .screen.active { display: block; }
-    h1, h2, h3 { margin-bottom: 1rem; color: var(--primary); }
-    p { margin-bottom: 1rem; color: #4a5568; }
-    input, select, button { width: 100%; padding: 0.75rem; margin-bottom: 1rem; border-radius: 8px; border: 1px solid #cbd5e0; font-size: 1rem; }
-    button { background-color: var(--accent); color: white; font-weight: bold; border: none; cursor: pointer; transition: background-color 0.2s ease; }
-    button:hover { background-color: var(--accent-hover); }
-    button:disabled { background-color: #cbd5e0; cursor: not-allowed; }
-    .status-text { font-size: 0.9rem; color: #718096; margin-top: 0.5rem; font-style: italic; }
-    #qrcode { display: flex; justify-content: center; margin: 1rem 0; }
-    .room-code { font-size: 2rem; font-weight: bold; letter-spacing: 4px; color: var(--accent); margin: 0.5rem 0; }
-    ul.player-list { list-style: none; margin: 1rem 0; }
-    ul.player-list li { background: #edf2f7; padding: 0.5rem; margin-bottom: 0.5rem; border-radius: 6px; font-weight: 500; }
-    
-    .tags-container { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
-    .paper-tag { background: #fefcbf; border: 1px dashed #d69e2e; padding: 0.75rem; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: bold; text-align: left; }
-    .paper-tag.active { border: 2px solid var(--accent); box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.3); }
-    .paired-name { font-size: 0.85rem; color: #742a2a; background: #fed7d7; padding: 0.2rem 0.5rem; border-radius: 4px; }
-    .names-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-bottom: 1.5rem; }
-    .name-btn { background-color: #e2e8f0; color: var(--text); margin-bottom: 0; }
-    .name-btn.selected { background-color: var(--accent); color: white; }
-    
-    .table-responsive { overflow-x: auto; margin-bottom: 1rem; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th, td { border: 1px solid var(--border); padding: 0.5rem; text-align: center; }
-    th { background-color: #edf2f7; }
-    .cell-check { color: #38a169; font-weight: bold; }
-    .score-row { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
-    .bonus-star { color: #d69e2e; font-size: 0.8rem; }
-    .hidden { display: none; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .screen {
+      display: none;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    h1, h2, h3 {
+      margin-bottom: 1rem;
+      color: var(--primary);
+    }
+
+    p {
+      margin-bottom: 1rem;
+      color: #4a5568;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      border: 1px solid #cbd5e0;
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: var(--accent);
+      color: white;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    button:hover {
+      background-color: var(--accent-hover);
+    }
+
+    button:disabled {
+      background-color: #cbd5e0;
+      cursor: not-allowed;
+    }
+
+    .status-text {
+      font-size: 0.9rem;
+      color: #718096;
+      margin-top: 0.5rem;
+      font-style: italic;
+    }
+
+    #qrcode {
+      display: flex;
+      justify-content: center;
+      margin: 1rem 0;
+    }
+
+    .room-code {
+      font-size: 2rem;
+      font-weight: bold;
+      letter-spacing: 4px;
+      color: var(--accent);
+      margin: 0.5rem 0;
+    }
+
+    ul.player-list {
+      list-style: none;
+      margin: 1rem 0;
+    }
+
+    ul.player-list li {
+      background: #edf2f7;
+      padding: 0.5rem;
+      margin-bottom: 0.5rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+
+    /* Gameplay styles */
+    .tags-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .paper-tag {
+      background: #fefcbf;
+      border: 1px dashed #d69e2e;
+      padding: 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .paper-tag.active {
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.3);
+    }
+
+    .paired-name {
+      font-size: 0.85rem;
+      color: #742a2a;
+      background: #fed7d7;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    .names-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .name-btn {
+      background-color: #e2e8f0;
+      color: var(--text);
+      margin-bottom: 0;
+    }
+
+    .name-btn.selected {
+      background-color: var(--accent);
+      color: white;
+    }
+
+    /* Scoreboard styles */
+    .table-responsive {
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.5rem;
+      text-align: center;
+    }
+
+    th {
+      background-color: #edf2f7;
+    }
+
+    .cell-check {
+      color: #38a169;
+      font-weight: bold;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .bonus-star {
+      color: #d69e2e;
+      font-size: 0.8rem;
+    }
+
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
 
-  <!-- SCREEN 1: HOME -->
+  <!-- SCREEN 1: LANDING / HOME -->
   <div id="screen-home" class="screen active">
     <h1>Sooo You...</h1>
     <p>A fun party game of tagging your friends!</p>
-    <button onclick="showScreen('screen-host-setup')">Host Game</button>
+    <button onclick="initHost()">Host Game</button>
     <button onclick="showScreen('screen-join')">Join Game</button>
   </div>
 
@@ -111,52 +280,64 @@
   <div id="screen-gameplay" class="screen">
     <h2 id="round-header">Round 1 of 3</h2>
     <p>Tap a tag, then select who fits best!</p>
+    
     <div class="tags-container" id="tags-container"></div>
+    
     <h3>Assign To:</h3>
     <div class="names-grid" id="names-container"></div>
+    
     <button id="submit-pairings-btn" onclick="submitPairings()" disabled>Submit Pairings</button>
   </div>
 
   <!-- SCREEN 6: WAITING -->
   <div id="screen-wait" class="screen">
     <h2>Submitted!</h2>
-    <p id="wait-msg">Waiting for everyone else to complete their tags...</p>
+    <p id="wait-message">Waiting for everyone else to complete their tags...</p>
   </div>
 
   <!-- SCREEN 7: SCOREBOARD -->
   <div id="screen-scoreboard" class="screen">
     <h2 id="score-round-title">Round Results</h2>
+    
     <div class="table-responsive">
       <table>
-        <thead><tr id="score-table-head"></tr></thead>
+        <thead>
+          <tr id="score-table-head"></tr>
+        </thead>
         <tbody id="score-table-body"></tbody>
       </table>
     </div>
+
     <h3>Round Scores</h3>
     <div id="round-scores-list" style="margin-bottom: 1rem;"></div>
+
     <div id="total-scores-wrapper" class="hidden">
       <h3>Total Scores</h3>
       <div id="total-scores-list" style="margin-bottom: 1rem;"></div>
       <h2 id="winner-announcement" style="color:var(--accent);"></h2>
     </div>
+
     <button id="next-round-btn" onclick="proceedNextRound()">Next Round</button>
   </div>
 
 </div>
 
 <script>
-const NONE_BTN = "None of These Friends";
+// --- SOCKET & GAME STATE ---
 const socket = io();
+const NONE_BTN = "None of These Friends";
 
 let isHost = false;
 let roomCode = "";
 let myPlayerName = "";
 let players = [];
+
 let currentRound = 1;
 let currentTags = [];
 let selectedPairings = {};
 let activeTagIndex = null;
 
+// --- URL QUERY PARSER (AUTO-FILL ROOM ON SCAN) ---
 window.addEventListener('load', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const room = urlParams.get('room');
@@ -171,52 +352,64 @@ function showScreen(screenId) {
   document.getElementById(screenId).classList.add('active');
 }
 
-function createLobby() {
+function initHost() {
   isHost = true;
+  showScreen('screen-host-setup');
+}
+
+function createLobby() {
   myPlayerName = document.getElementById('host-name').value.trim();
-  const totalPlayers = document.getElementById('player-count').value;
+  const playerCount = parseInt(document.getElementById('player-count').value);
+
   if (!myPlayerName) return alert("Please enter your name!");
 
-  socket.emit('createRoom', { playerName: myPlayerName, totalPlayers });
+  socket.emit('createRoom', { hostName: myPlayerName, playerCount: playerCount });
 }
 
 function joinLobby() {
   isHost = false;
   roomCode = document.getElementById('join-room-code').value.trim().toUpperCase();
   myPlayerName = document.getElementById('join-player-name').value.trim();
+
   if (!roomCode || roomCode.length !== 4) return alert("Please enter a valid 4-letter room code.");
   if (!myPlayerName) return alert("Please enter your name.");
 
   socket.emit('joinRoom', { roomCode, playerName: myPlayerName });
 }
 
-// SOCKET LISTENERS
+// --- SOCKET EVENTS ---
 socket.on('roomCreated', (data) => {
   roomCode = data.roomCode;
   players = data.players;
-  document.getElementById('room-code-display').innerText = roomCode;
-  document.getElementById('target-count').innerText = data.target;
   
+  document.getElementById('room-code-display').innerText = roomCode;
+  document.getElementById('target-count').innerText = data.playerCount;
+
   const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
   const joinUrl = baseUrl + '?room=' + roomCode;
+  
   document.getElementById("qrcode").innerHTML = "";
   new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128 });
 
-  updateLobbyUI(data.players, data.target);
+  updateLobbyUI(data.playerCount);
   showScreen('screen-lobby');
 });
 
-socket.on('joinSuccess', () => {
-  showScreen('screen-wait');
-  document.getElementById('wait-msg').innerText = "Connected! Waiting for host to start...";
-});
-
-socket.on('updateLobby', (data) => {
+socket.on('playerJoined', (data) => {
   players = data.players;
-  updateLobbyUI(data.players, data.target);
+  updateLobbyUI(data.playerCount);
 });
 
-socket.on('errorMsg', (msg) => alert(msg));
+socket.on('joinSuccess', (data) => {
+  roomCode = data.roomCode;
+  players = data.players;
+  showScreen('screen-wait');
+  document.getElementById('wait-message').innerText = "Connected! Waiting for host to start...";
+});
+
+socket.on('errorMessage', (msg) => {
+  alert(msg);
+});
 
 socket.on('startRound', (data) => {
   currentRound = data.round;
@@ -225,28 +418,40 @@ socket.on('startRound', (data) => {
   setupGameplayUI();
 });
 
-socket.on('roundResults', (data) => renderScoreboard(data));
+socket.on('roundResults', (data) => {
+  renderScoreboard(data);
+});
 
-function updateLobbyUI(playerList, targetCount) {
-  document.getElementById('connected-count').innerText = playerList.length;
-  document.getElementById('target-count').innerText = targetCount;
-  document.getElementById('player-list-display').innerHTML = playerList.map(p => `<li>${p}</li>`).join('');
+function updateLobbyUI(targetCount) {
+  document.getElementById('connected-count').innerText = players.length;
+  const list = document.getElementById('player-list-display');
+  list.innerHTML = players.map(p => `<li>${p}</li>`).join('');
+
+  if (players.length === targetCount) {
+    document.getElementById('lobby-status').innerText = "All players joined! Starting Round 1...";
+  } else {
+    document.getElementById('lobby-status').innerText = "Waiting for players to join...";
+  }
 }
 
+// --- GAMEPLAY FUNCTIONS ---
 function setupGameplayUI() {
   selectedPairings = {};
   activeTagIndex = null;
+
   document.getElementById('round-header').innerText = `Round ${currentRound} of 3`;
   
-  document.getElementById('tags-container').innerHTML = currentTags.map((tag, idx) => `
+  const tagsContainer = document.getElementById('tags-container');
+  tagsContainer.innerHTML = currentTags.map((tag, idx) => `
     <div class="paper-tag" id="tag-${idx}" onclick="selectTag(${idx})">
       <span>${tag}</span>
       <span class="paired-name" id="tag-paired-${idx}">Unassigned</span>
     </div>
   `).join('');
 
+  const namesContainer = document.getElementById('names-container');
   const allChoices = [...players, NONE_BTN];
-  document.getElementById('names-container').innerHTML = allChoices.map(name => `
+  namesContainer.innerHTML = allChoices.map(name => `
     <button class="name-btn" onclick="assignNameToActiveTag('${name}')">${name}</button>
   `).join('');
 
@@ -257,42 +462,72 @@ function setupGameplayUI() {
 
 function selectTag(idx) {
   activeTagIndex = idx;
-  document.querySelectorAll('.paper-tag').forEach((el, i) => el.classList.toggle('active', i === idx));
+  document.querySelectorAll('.paper-tag').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+  });
+  updateNameButtonsUI();
 }
 
 function assignNameToActiveTag(name) {
   if (activeTagIndex === null) return;
+
+  // 1. If clicking the exact same name already assigned to THIS tag, unassign it (toggle off)
   if (selectedPairings[activeTagIndex] === name) {
     delete selectedPairings[activeTagIndex];
     document.getElementById(`tag-paired-${activeTagIndex}`).innerText = 'Unassigned';
   } else {
+    // 2. If this name was previously assigned to ANOTHER tag, clear it from that tag first!
+    Object.keys(selectedPairings).forEach(tIdx => {
+      if (selectedPairings[tIdx] === name) {
+        delete selectedPairings[tIdx];
+        document.getElementById(`tag-paired-${tIdx}`).innerText = 'Unassigned';
+      }
+    });
+
+    // 3. Assign the name to the active tag
     selectedPairings[activeTagIndex] = name;
     document.getElementById(`tag-paired-${activeTagIndex}`).innerText = name;
   }
 
-  document.querySelectorAll('.name-btn').forEach(btn => {
-    btn.classList.toggle('selected', btn.innerText === selectedPairings[activeTagIndex]);
-  });
+  // Update button highlight UI
+  updateNameButtonsUI();
 
+  // Enable submit button only when all tags have a selection
   const allPaired = currentTags.every((_, idx) => !!selectedPairings[idx]);
   document.getElementById('submit-pairings-btn').disabled = !allPaired;
 }
 
-function submitPairings() {
-  socket.emit('submitPairings', { roomCode, playerName: myPlayerName, pairings: selectedPairings });
-  showScreen('screen-wait');
-  document.getElementById('wait-msg').innerText = "Waiting for everyone else to complete their tags...";
+function updateNameButtonsUI() {
+  const currentAssignedName = selectedPairings[activeTagIndex];
+  document.querySelectorAll('.name-btn').forEach(btn => {
+    btn.classList.toggle('selected', btn.innerText === currentAssignedName);
+  });
 }
 
+function submitPairings() {
+  socket.emit('submitPairings', {
+    roomCode: roomCode,
+    playerName: myPlayerName,
+    pairings: selectedPairings
+  });
+
+  document.getElementById('wait-message').innerText = "Waiting for everyone else to complete their tags...";
+  showScreen('screen-wait');
+}
+
+// --- SCOREBOARD FUNCTIONS ---
 function renderScoreboard(data) {
   const allColumns = [...players, NONE_BTN];
+
   document.getElementById('score-round-title').innerText = `Round ${data.round} Results`;
 
-  document.getElementById('score-table-head').innerHTML = `<th>Tags</th>` + allColumns.map(c => `<th>${c === NONE_BTN ? 'None' : c}</th>`).join('');
+  const headRow = document.getElementById('score-table-head');
+  headRow.innerHTML = `<th>Tags</th>` + allColumns.map(c => `<th>${c === NONE_BTN ? 'None' : c}</th>`).join('');
 
   const mySub = data.submissions.find(s => s.playerName === myPlayerName);
 
-  document.getElementById('score-table-body').innerHTML = data.tags.map((tag, tIdx) => {
+  const body = document.getElementById('score-table-body');
+  body.innerHTML = data.tags.map((tag, tIdx) => {
     const cells = allColumns.map(col => {
       const count = data.matrix[tIdx][col] || 0;
       const myChecked = mySub && mySub.pairings[tIdx] === col;
@@ -302,7 +537,8 @@ function renderScoreboard(data) {
     return `<tr><td><strong>${tag}</strong></td>${cells}</tr>`;
   }).join('');
 
-  document.getElementById('round-scores-list').innerHTML = players.map(p => `
+  const roundScoresDiv = document.getElementById('round-scores-list');
+  roundScoresDiv.innerHTML = players.map(p => `
     <div class="score-row">
       <span>${p} ${data.bonuses[p] ? '<span class="bonus-star">★ (+2 Bonus!)</span>' : ''}</span>
       <strong>${data.roundScores[p]} pts</strong>
@@ -314,26 +550,43 @@ function renderScoreboard(data) {
 
   if (data.round < 3) {
     totalWrapper.classList.add('hidden');
-    nextBtn.innerText = isHost ? (data.round === 1 ? "Start Round 2" : "Start Final Round") : "Waiting for Host...";
-    nextBtn.disabled = !isHost;
+    if (isHost) {
+      nextBtn.style.display = 'block';
+      nextBtn.innerText = data.round === 1 ? "Proceed to Round 2" : "Proceed to Final Round";
+    } else {
+      nextBtn.style.display = 'none'; // Hide next button for players
+    }
   } else {
     totalWrapper.classList.remove('hidden');
-    document.getElementById('total-scores-list').innerHTML = players.map(p => `
-      <div class="score-row"><span>${p}</span><strong>${data.cumulativeScores[p]} pts</strong></div>
+    
+    const totalScoresDiv = document.getElementById('total-scores-list');
+    totalScoresDiv.innerHTML = players.map(p => `
+      <div class="score-row">
+        <span>${p}</span>
+        <strong>${data.cumulativeScores[p]} pts</strong>
+      </div>
     `).join('');
 
     let maxTotal = -1;
     let winners = [];
     players.forEach(p => {
-      if (data.cumulativeScores[p] > maxTotal) { maxTotal = data.cumulativeScores[p]; winners = [p]; }
-      else if (data.cumulativeScores[p] === maxTotal) { winners.push(p); }
+      if (data.cumulativeScores[p] > maxTotal) {
+        maxTotal = data.cumulativeScores[p];
+        winners = [p];
+      } else if (data.cumulativeScores[p] === maxTotal) {
+        winners.push(p);
+      }
     });
 
     document.getElementById('winner-announcement').innerText = 
       winners.length === 1 ? `🎉 ${winners[0]} Wins! 🎉` : `🎉 Tie Game: ${winners.join(' & ')}! 🎉`;
 
-    nextBtn.innerText = "Play Again?";
-    nextBtn.disabled = false;
+    if (isHost) {
+      nextBtn.style.display = 'block';
+      nextBtn.innerText = "Play Again?";
+    } else {
+      nextBtn.style.display = 'none';
+    }
   }
 
   showScreen('screen-scoreboard');
@@ -341,7 +594,7 @@ function renderScoreboard(data) {
 
 function proceedNextRound() {
   if (currentRound < 3) {
-    if (isHost) socket.emit('nextRound', { roomCode });
+    socket.emit('nextRound', { roomCode });
   } else {
     location.reload();
   }
