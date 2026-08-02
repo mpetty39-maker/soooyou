@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Sooo You...</title>
   
-  <!-- Socket.io Library for Real-Time Server Communication -->
-  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <!-- Socket.io Client Library -->
+  <script src="/socket.io/socket.io.js"></script>
   
   <!-- QRCode.js for generating lobby QR codes -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
   <style>
-    /* --- CSS STYLES --- */
     :root {
       --bg-color: #f3eed9;
       --card-bg: #fffdf5;
@@ -131,7 +130,6 @@
       font-weight: 500;
     }
 
-    /* Gameplay styles */
     .tags-container {
       display: flex;
       flex-direction: column;
@@ -183,7 +181,6 @@
       color: white;
     }
 
-    /* Scoreboard styles */
     .table-responsive {
       overflow-x: auto;
       margin-bottom: 1rem;
@@ -337,7 +334,7 @@ let currentTags = [];
 let selectedPairings = {};
 let activeTagIndex = null;
 
-// --- URL QUERY PARSER (AUTO-FILL ROOM ON SCAN) ---
+// --- URL QUERY PARSER (AUTO-FILL ROOM ON QR SCAN) ---
 window.addEventListener('load', () => {
   const urlParams = new URLSearchParams(window.location.search);
   const room = urlParams.get('room');
@@ -359,7 +356,7 @@ function initHost() {
 
 function createLobby() {
   myPlayerName = document.getElementById('host-name').value.trim();
-  const playerCount = parseInt(document.getElementById('player-count').value);
+  const playerCount = parseInt(document.getElementById('player-count').value, 10);
 
   if (!myPlayerName) return alert("Please enter your name!");
 
@@ -383,7 +380,7 @@ socket.on('roomCreated', (data) => {
   players = data.players;
   
   document.getElementById('room-code-display').innerText = roomCode;
-  document.getElementById('target-count').innerText = data.playerCount;
+  document.getElementById('target-count').innerText = data.targetPlayerCount;
 
   const baseUrl = window.location.protocol + '//' + window.location.host + window.location.pathname;
   const joinUrl = baseUrl + '?room=' + roomCode;
@@ -391,13 +388,13 @@ socket.on('roomCreated', (data) => {
   document.getElementById("qrcode").innerHTML = "";
   new QRCode(document.getElementById("qrcode"), { text: joinUrl, width: 128, height: 128 });
 
-  updateLobbyUI(data.playerCount);
+  updateLobbyUI(data.targetPlayerCount);
   showScreen('screen-lobby');
 });
 
 socket.on('playerJoined', (data) => {
   players = data.players;
-  updateLobbyUI(data.playerCount);
+  updateLobbyUI(data.targetPlayerCount);
 });
 
 socket.on('joinSuccess', (data) => {
@@ -424,6 +421,8 @@ socket.on('roundResults', (data) => {
 
 function updateLobbyUI(targetCount) {
   document.getElementById('connected-count').innerText = players.length;
+  document.getElementById('target-count').innerText = targetCount;
+  
   const list = document.getElementById('player-list-display');
   list.innerHTML = players.map(p => `<li>${p}</li>`).join('');
 
@@ -489,10 +488,9 @@ function assignNameToActiveTag(name) {
     document.getElementById(`tag-paired-${activeTagIndex}`).innerText = name;
   }
 
-  // Update button highlight UI
   updateNameButtonsUI();
 
-  // Enable submit button only when all tags have a selection
+  // Enable submit button only when every tag has a selection
   const allPaired = currentTags.every((_, idx) => !!selectedPairings[idx]);
   document.getElementById('submit-pairings-btn').disabled = !allPaired;
 }
@@ -554,7 +552,7 @@ function renderScoreboard(data) {
       nextBtn.style.display = 'block';
       nextBtn.innerText = data.round === 1 ? "Proceed to Round 2" : "Proceed to Final Round";
     } else {
-      nextBtn.style.display = 'none'; // Hide next button for players
+      nextBtn.style.display = 'none';
     }
   } else {
     totalWrapper.classList.remove('hidden');
